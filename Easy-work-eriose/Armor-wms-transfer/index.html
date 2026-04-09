@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>아머 창고이동 업로드 파일 변환기</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        body { font-family: sans-serif; padding: 20px; background-color: #f4f4f9; }
+        .container { max-width: 600px; margin: 0 auto; padding: 25px; background: white; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        h2 { text-align: center; color: #333; }
+        .input-group { margin-bottom: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; color: #555; }
+        input[type="text"] { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+        input[type="file"] { margin-bottom: 15px; }
+        button { width: 100%; padding: 12px; margin-top: 10px; font-size: 16px; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; }
+        #convertBtn { background-color: #007BFF; color: white; }
+        #convertBtn:hover { background-color: #0056b3; }
+        #downloadBtn { display: none; background-color: #28a745; color: white; margin-top: 15px; }
+        #downloadBtn:hover { background-color: #218838; }
+        #status { margin-top: 15px; font-weight: bold; text-align: center; color: #d9534f; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>아머 창고이동 업로드 파일 변환기 ver 0.1</h2>
+    
+    <div class="input-group">
+        <label for="locInput">A열: 재고로케이션 기본값</label>
+        <input type="text" id="locInput" value="R0-00-00-000">
+    </div>
+
+    <div class="input-group">
+        <label for="stateInput">D열: 상품상태 기본값</label>
+        <input type="text" id="stateInput" value="A">
+    </div>
+
+    <label>인풋 엑셀 파일 선택 (다중 선택 가능):</label>
+    <input type="file" id="fileInput" multiple accept=".xlsx, .xls, .csv">
+    
+    <button id="convertBtn">데이터 추출 및 시트 분할하기</button>
+    
+    <div id="status"></div>
+
+    <button id="downloadBtn">최종 엑셀 다운로드</button>
+</div>
+
+<script>
+    let outputWorkbook = null;
+
+    function readExcelFile(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+                    resolve(jsonData);
+                } catch (error) {
+                    reject(error);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        });
+    }
+
+    document.getElementById('convertBtn').addEventListener('click', async () => {
+        const fileInput = document.getElementById('fileInput');
+        const files = fileInput.files;
+        const statusDiv = document.getElementById('status');
+        
+        const locValue = document.getElementById('locInput').value;
+        const stateValue = document.getElementById('stateInput').value;
+
+        if (files.length === 0) {
+            statusDiv.innerText = "업로드할 파일을 먼저 선택해주세요.";
+            return;
+        }
+
+        statusDiv.innerText = "데이터 분석 및 필터링 중...";
+        statusDiv.style.color = "blue";
+        document.getElementById('downloadBtn').style.display = 'none';
+
+        try {
+            const groupedData = {};
+
+            const header1 = ["재고로케이션(필수)", "브랜드코드", "상품코드(필수)", "상품상태(필수)", "확정수량(필수)", "사유구분", "사유내역", "기타", "비고"];
+            const header2 = ["LOCATION_CD", "BRAND_CD", "ITEM_CD", "ITEM_STATE", "CONFIRM_QTY", "ETC_DIV", "ETC_COMMENT", "", "타이틀/컬럼명 행 유지"];
+
+            for (let i = 0; i < files.length; i++) {
+                const fileData = await readExcelFile(files[i]);
+                
+                for (let j = 0; j < fileData.length; j++) {
+                    const row = fileData[j];
+                    
+                    const itemCode = row["상품코드"] !== undefined ? String(row["상품코드"]).trim() : "";
+                    const confirmQty = row["확정수량"] !== undefined ? row["확정수량"] : "";
+                    const receiptNo = row["전표번호"] ? String(row["전표번호"]).trim() : "전표번호_없음";
+
+                    // 1. 확정수량을 안전하게 숫자(Float)로 변환합니다. 빈칸이나 글자면 NaN(Not a Number)이 됩니다.
+                    const qtyNumber = parseFloat(confirmQty);
+
+                    // 2. 핵심 로직: 상품코드가 있으면서 동시에 확정수량이 0보다 큰(양수) 경우에만 데이터를 담습니다!
+                    if (itemCode !== "" && qtyNumber > 0) {
+                        
+                        if (!groupedData[receiptNo]) {
+                            groupedData[receiptNo] = [ [...header1], [...header2] ];
+                        }
+
+                        const newRow = [
+                            locValue,    // A열
+                            "",          // B열
+                            itemCode,    // C열
+                            stateValue,  // D열
+                            confirmQty,  // E열 (원본 데이터 그대로 넣기)
+                            "",          // F열
+                            "",          // G열
+                            "",          // H열
+                            receiptNo    // I열
+                        ];
+                        groupedData[receiptNo].push(newRow);
+                    }
+                }
+            }
+
+            outputWorkbook = XLSX.utils.book_new();
+            let hasData = false;
+
+            for (const [receiptNo, dataArray] of Object.entries(groupedData)) {
+                if (dataArray.length > 2) {
+                    hasData = true;
+                    const newWorksheet = XLSX.utils.aoa_to_sheet(dataArray);
+                    let safeSheetName = receiptNo.replace(/[\\\/*?:\[\]]/g, '_').substring(0, 31);
+                    XLSX.utils.book_append_sheet(outputWorkbook, newWorksheet, safeSheetName);
+                }
+            }
+
+            if (!hasData) {
+                statusDiv.innerText = "조건(확정수량 > 0)에 맞는 데이터가 없습니다.";
+                statusDiv.style.color = "red";
+                return;
+            }
+
+            statusDiv.innerText = "총 " + Object.keys(groupedData).length + "개의 시트가 생성되었습니다.";
+            statusDiv.style.color = "green";
+            document.getElementById('downloadBtn').style.display = 'block';
+
+        } catch (error) {
+            console.error(error);
+            statusDiv.innerText = "오류가 발생했습니다. 개발자 도구를 확인해주세요.";
+            statusDiv.style.color = "red";
+        }
+    });
+
+    document.getElementById('downloadBtn').addEventListener('click', () => {
+        if (outputWorkbook) {
+            XLSX.writeFile(outputWorkbook, "최종_전표별분할_수량필터_결과.xlsx");
+        }
+    });
+</script>
+
+</body>
+</html>

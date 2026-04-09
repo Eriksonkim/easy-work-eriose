@@ -156,9 +156,21 @@
         }
     });
 
-    document.getElementById('downloadBtn').addEventListener('click', () => {
+document.getElementById('downloadBtn').addEventListener('click', () => {
         if (outputWorkbook) {
-            XLSX.writeFile(outputWorkbook, "최종_전표별분할_수량필터_결과.xlsx");
+            // 1. 오늘 날짜 구하기 (YYYYMMDD 형식)
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0'); // 월 (1~9월은 앞에 0 붙이기)
+            const day = String(now.getDate()).padStart(2, '0');        // 일 (1~9일은 앞에 0 붙이기)
+            
+            const dateString = `${year}${month}${day}`; // 예: 20260409
+
+            // 2. 파일 이름 만들기
+            const fileName = `최종_전표별분할_결과_${dateString}.xlsx`;
+
+            // 3. 엑셀 다운로드 실행
+            XLSX.writeFile(outputWorkbook, fileName);
         }
     });
 </script>

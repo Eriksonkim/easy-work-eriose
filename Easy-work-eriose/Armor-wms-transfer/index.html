@@ -167,7 +167,7 @@ document.getElementById('downloadBtn').addEventListener('click', () => {
             const dateString = `${year}${month}${day}`; // 예: 20260409
 
             // 2. 파일 이름 만들기
-            const fileName = `최종_전표별분할_결과_${dateString}.xlsx`;
+            const fileName = `창고이동업로드파일_${dateString}.xlsx`;
 
             // 3. 엑셀 다운로드 실행
             XLSX.writeFile(outputWorkbook, fileName);

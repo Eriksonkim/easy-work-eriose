@@ -94,8 +94,9 @@
         try {
             const groupedData = {};
 
-            const header1 = ["재고로케이션(필수)", "브랜드코드", "상품코드(필수)", "상품상태(필수)", "확정수량(필수)", "사유구분", "사유내역", "기타", "비고"];
-            const header2 = ["LOCATION_CD", "BRAND_CD", "ITEM_CD", "ITEM_STATE", "CONFIRM_QTY", "ETC_DIV", "ETC_COMMENT", "", "타이틀/컬럼명 행 유지"];
+            // 1. 헤더 레이아웃 수정 (E열에 LOT번호 추가)
+            const header1 = ["로케이션(필수)", "브랜드코드", "상품코드(필수)", "상품상태(필수)", "LOT번호", "확정수량(필수)", "사유구분", "사유내역", "비고"];
+            const header2 = ["LOCATION_CD", "BRAND_CD", "ITEM_CD", "ITEM_STATE", "ITEM_LOT", "CONFIRM_QTY", "ETC_DIV", "ETC_COMMENT", "타이틀/컬럼명 행 유지 , 셀 위치 변경 불가"];
 
             for (let i = 0; i < files.length; i++) {
                 const fileData = await readExcelFile(files[i]);
@@ -107,26 +108,25 @@
                     const confirmQty = row["확정수량"] !== undefined ? row["확정수량"] : "";
                     const receiptNo = row["전표번호"] ? String(row["전표번호"]).trim() : "전표번호_없음";
 
-                    // 1. 확정수량을 안전하게 숫자(Float)로 변환합니다. 빈칸이나 글자면 NaN(Not a Number)이 됩니다.
                     const qtyNumber = parseFloat(confirmQty);
 
-                    // 2. 핵심 로직: 상품코드가 있으면서 동시에 확정수량이 0보다 큰(양수) 경우에만 데이터를 담습니다!
                     if (itemCode !== "" && qtyNumber > 0) {
                         
                         if (!groupedData[receiptNo]) {
                             groupedData[receiptNo] = [ [...header1], [...header2] ];
                         }
 
+                        // 2. 데이터 들어가는 순서
                         const newRow = [
-                            locValue,    // A열
-                            "",          // B열
-                            itemCode,    // C열
-                            stateValue,  // D열
-                            confirmQty,  // E열 (원본 데이터 그대로 넣기)
-                            "",          // F열
-                            "",          // G열
-                            "",          // H열
-                            receiptNo    // I열
+                            locValue,    // A열: 로케이션(필수)
+                            "",          // B열: 브랜드코드 (빈칸)
+                            itemCode,    // C열: 상품코드(필수)
+                            stateValue,  // D열: 상품상태(필수)
+                            "",          // E열: LOT번호 (빈칸 유지)
+                            confirmQty,  // F열: 확정수량(필수) 
+                            "",          // G열: 사유구분 (빈칸)
+                            "",          // H열: 사유내역 (빈칸)
+                            receiptNo    // I열: 비고 (여기에 전표번호 입력)
                         ];
                         groupedData[receiptNo].push(newRow);
                     }

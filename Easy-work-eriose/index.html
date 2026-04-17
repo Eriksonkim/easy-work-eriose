@@ -2,28 +2,51 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>이지워크 자동화 포털</title>
     <style>
-        body { font-family: sans-serif; text-align: center; padding: 50px; background-color: #f4f4f9; }
-        .menu-box { border: 1px solid #ccc; padding: 20px; margin: 20px auto; width: 300px; background: white; border-radius: 8px; }
-        a { display: block; padding: 10px; background-color: #007BFF; color: white; text-decoration: none; border-radius: 4px; font-weight: bold; }
+        body { font-family: 'Pretendard', sans-serif; text-align: center; padding: 50px; background-color: #f4f4f9; color: #333; }
+        h1 { margin-bottom: 30px; display: flex; align-items: center; justify-content: center; gap: 15px; }
+        .container { max-width: 800px; margin: 0 auto; display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; }
+        .menu-box { border: 1px solid #e2e8f0; padding: 25px; width: 320px; background: white; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); transition: transform 0.2s; }
+        .menu-box:hover { transform: translateY(-5px); }
+        .menu-box h3 { margin-top: 0; color: #1e293b; font-size: 1.2rem; }
+        .menu-box p { color: #64748b; font-size: 0.95rem; margin-bottom: 20px; min-height: 3em; line-height: 1.5; }
+        a { display: block; padding: 12px; background-color: #007BFF; color: white; text-decoration: none; border-radius: 6px; font-weight: bold; }
         a:hover { background-color: #0056b3; }
+        
+        /* 반품 스캐너 전용 스타일 */
+        .scanner-btn { background-color: #4F46E5; }
+        .scanner-btn:hover { background-color: #4338CA; }
+        
+        .disabled-btn { background-color: #ccc; pointer-events: none; }
     </style>
-    <link rel="icon" href="/favicon.ico" type="image/x-icon">
 </head>
 <body>
-    <h1><img src="./logo.png" alt="회사 로고" style="height: 6em; vertical-align: middle; margin-right: 2px;"> 이지 워크 사내 자동화 포털</h1>
-    <p>원하시는 업무 툴을 선택해주세요.</p>
-    <div class="menu-box">
-        <h3>📦 아머WMS 창고이동 변환기</h3>
-        <p>전표번호별 시트 분할 도구</p>
-        <a href="./Armor-WMS-transfer/index.html">변환기 실행하기</a>
-    </div>
+    <h1>
+        <img src="./logo.png" alt="회사 로고" style="height: 2.5em; vertical-align: middle;">
+        이지워크 사내 자동화 포털
+    </h1>
+    <p style="margin-bottom: 40px; color: #475569;">원하시는 업무 툴을 선택해주세요.</p>
 
-    <div class="menu-box">
-        <h3>준비 중인 도구</h3>
-        <p>and so on...</p>
-        <a href="#" style="background-color: #ccc; pointer-events: none;">업데이트 예정</a>
+    <div class="container">
+        <div class="menu-box">
+            <h3>📦 아머WMS 창고이동 변환기</h3>
+            <p>전표번호별 시트 분할 및<br>데이터 변환 도구</p>
+            <a href="./Armor-WMS-transfer/index.html">변환기 실행하기</a>
+        </div>
+
+        <div class="menu-box">
+            <h3>🔍 반품 분류 시스템</h3>
+            <p>클라우드 동기화 기반<br>반품 분류 검수</p>
+            <a href="./B2B%20Return%20assorting%20system/index.html" class="scanner-btn">시스템 실행하기</a>
+        </div>
+
+        <div class="menu-box">
+            <h3>준비 중인 도구</h3>
+            <p>업무 효율을 위한<br>새로운 기능이 추가될 예정입니다.</p>
+            <a href="#" class="disabled-btn">업데이트 예정</a>
+        </div>
     </div>
 </body>
 </html>

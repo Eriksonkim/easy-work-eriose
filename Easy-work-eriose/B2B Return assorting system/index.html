@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>반품 분류 스캐너 V5.5 (Cloud Security & Batch & Row Partition)</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <style>
+        :root { --primary: #4F46E5; --bg: #F3F4F6; --card: #FFFFFF; --text: #111827; --danger: #EF4444; --success: #10B981; --warning: #F59E0B; }
+        body { font-family: 'Pretendard', sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 20px; }
+        .container { max-width: 900px; margin: 0 auto; position: relative; }
+        .card { background: var(--card); padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); margin-bottom: 20px; }
+        .hidden { display: none !important; }
+        
+        button { background: var(--primary); color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-size: 15px; font-weight: bold; transition: 0.2s; }
+        button:hover { opacity: 0.9; }
+        button:disabled { background: #cbd5e1; cursor: not-allowed; }
+        button.secondary { background: #6366f1; }
+        button.outline { background: white; color: var(--primary); border: 2px solid var(--primary); }
+        button.warning { background: var(--warning); color: white; }
+        button.danger { background: var(--danger); color: white; }
+        button.success { background: var(--success); }
+        
+        input[type="text"], input[type="number"], select { width: 100%; padding: 14px; margin: 10px 0; border: 2px solid #e2e8f0; border-radius: 8px; box-sizing: border-box; font-size: 16px; transition: 0.2s; }
+        input:disabled { background-color: #f1f5f9; cursor: not-allowed; border-color: #cbd5e1; color: #94a3b8; font-weight: bold;}
+        
+        .step-indicator { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
+        .step-badge { padding: 8px 16px; border-radius: 20px; background: #e2e8f0; color: #64748b; font-weight: bold; }
+        .step-badge.active { background: var(--primary); color: white; }
+
+        .sound-box { margin-left: auto; display: flex; align-items: center; gap: 8px; background: #EEF2FF; padding: 8px 12px; border-radius: 8px; }
+        .cloud-badge { background: var(--success); color: white; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; margin-left: 10px; display: inline-flex; align-items: center; gap: 4px; }
+        .auth-badge { background: #8B5CF6; color: white; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; margin-left: 5px; display: inline-flex; align-items: center; gap: 4px; }
+
+        .big-display { text-align: center; margin: 20px 0; padding: 40px 20px; background: #f8fafc; border: 3px solid #e2e8f0; border-radius: 12px; min-height: 180px; display: flex; flex-direction: column; justify-content: center; transition: 0.3s; }
+        .big-code { font-size: 7.5rem; font-weight: 900; color: var(--primary); margin: 0; line-height: 1; transition: color 0.3s; }
+        .big-info { font-size: 1.8rem; color: #1e293b; margin-top: 20px; font-weight: bold; transition: color 0.3s; }
+        
+        .search-select-container { position: relative; width: 100%; margin-top: 5px; }
+        .dropdown-btn { width: 100%; padding: 14px; background: white; border: 2px solid var(--primary); border-radius: 8px; color: var(--primary); text-align: left; display: flex; justify-content: space-between; align-items: center; font-size: 16px; }
+        .dropdown-btn:hover { background: #f8fafc; }
+        .dropdown-btn.closed-mode { color: var(--danger); text-decoration: line-through; }
+        
+        #boxListDropdown { position: absolute; top: 100%; left: 0; width: 100%; background: white; border: 2px solid #e2e8f0; border-top: none; max-height: 300px; overflow-y: auto; z-index: 50; display: none; border-bottom-left-radius: 8px; border-bottom-right-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); margin-top: -2px; }
+        .dropdown-item { padding: 12px 15px; cursor: pointer; border-bottom: 1px solid #f1f5f9; }
+        .dropdown-item:hover { background: #EEF2FF; color: var(--primary); font-weight: bold; }
+
+        .text-red { color: var(--danger) !important; font-weight: bold; }
+
+        .prog-card { background: #f1f5f9; padding: 20px; border-radius: 8px; border-left: 6px solid #cbd5e1; margin-bottom: 20px; }
+        .prog-card.active { border-left-color: var(--primary); background: #eff6ff; }
+        .stat-line { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 1.1rem; }
+        .stat-line strong { color: var(--primary); }
+
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+        .modal-content { background: white; padding: 25px; border-radius: 12px; max-width: 400px; width: 90%; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+        .modal-actions { display: flex; justify-content: space-between; gap: 10px; margin-top: 20px; }
+        .modal-actions button { flex: 1; }
+    </style>
+</head>
+<body>
+    <div id="overQtyModal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3 style="color: var(--danger); margin-top: 0;">🚨 수량 초과 경고</h3>
+            <p id="overQtyMsg" style="font-size: 1.1rem; font-weight: bold;">수량을 초과했습니다. 계속 스캔할까요?</p>
+            <div class="modal-actions">
+                <button id="btnCancelModal" class="outline">취소</button>
+                <button id="btnConfirmModal" class="danger" disabled>적용하기 (1초 후 활성화)</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        
+    <div id="view-dashboard" class="card">
+        <h1>📦 반품 분류 대시보드 
+            <span class="cloud-badge">☁️ 클라우드</span>
+            <span class="auth-badge" id="authStatusBadge">🔒 인증 중...</span>
+        </h1>
+        <p style="font-size: 0.95rem; color: #64748b; background: #f8fafc; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0;">
+            💡 <strong>보안 서버 안내:</strong> 현재 클라우드에 연결되어 있습니다. 데이터는 30일 이후 자동삭제 됩니다.
+        </p>
+        <div style="margin: 25px 0; padding: 20px; border: 2px dashed #cbd5e1; border-radius: 12px;">
+            <h3>새 작업 시작 (엑셀 업로드)</h3>
+            <label style="display:block; margin-bottom:5px; font-weight:bold; color:#475569;">대분류 1박스당 포함할 상품 행 수</label>
+            <input type="number" id="rowsPerBoxInput" placeholder="예: 5" min="1" disabled>
+            <input type="file" id="dataFileInput" accept=".csv, .xls, .xlsx" disabled>
+            <button id="btnUpload" onclick="handleFileUpload()" style="width:100%" disabled>데이터 분석 및 차수 생성</button>
+        </div>
+        <h3>진행 중인 작업 목록 (실시간 동기화)</h3>
+        <ul id="batchList" style="list-style:none; padding:0;">
+            <li style="text-align:center; color:#94a3b8;">서버 연결을 기다리는 중입니다...</li>
+        </ul>
+    </div>
+
+    <div id="view-scanner" class="card hidden">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+            <h2 id="currentBatchTitle">차수 작업</h2>
+            <button class="outline" onclick="goDashboard()">🔙 대시보드</button>
+        </div>
+
+        <div class="step-indicator">
+            <div id="badge-step1" class="step-badge active">STEP 1. 대분류 박스 지정</div>
+            <div id="badge-step2" class="step-badge">STEP 2. 소분류 수량 검수</div>
+
+            <div class="sound-box">
+                <label style="cursor:pointer"><input type="checkbox" id="soundToggle" checked> 🔊 음성안내</label>
+                <select id="voiceSelect" style="padding:4px; border-radius:4px; max-width: 150px;"></select>
+            </div>
+        </div>
+
+        <div id="panel-step1">
+            <div class="prog-card active">
+                <div class="stat-line" style="font-size: 1.3rem;">
+                    <span>전체 스캔 수량:</span>
+                    <strong id="step1TotalProgress">0 / 0 pcs (0%)</strong>
+                </div>
+                <div class="stat-line">
+                    <span id="step1BoxProgressText">현재 박스 진행:</span>
+                    <strong id="step1BoxProgress">0 / 0 pcs</strong>
+                </div>
+                <div class="stat-line" style="margin-top: 5px;">
+                    <span id="step1BoxRemainingText" style="color: #64748b; font-size: 0.95rem;">남은 수량:</span>
+                    <strong id="step1BoxRemaining" style="color: var(--danger); font-size: 0.95rem;">0 pcs</strong>
+                </div>
+            </div>
+
+            <input type="text" id="inputStep1" placeholder="상품 바코드를 스캔하세요..." autocomplete="off">
+            <div class="big-display" id="displayBoxStep1">
+                <div class="big-code" id="codeStep1">READY</div>
+                <div class="big-info" id="infoStep1">스캔 대기 중</div>
+            </div>
+            
+            <div style="display:flex; gap:10px;">
+                <button onclick="downloadMappingTable()" class="secondary">📋 대분류 내역 다운로드</button>
+                <button onclick="switchStep(2)" class="outline" style="margin-left:auto;">소분류 이동 ➡️</button>
+            </div>
+        </div>
+
+        <div id="panel-step2" class="hidden">
+            <div class="prog-card active" style="margin-bottom: 10px;">
+                <div class="stat-line" style="font-size: 1.1rem; color: #475569; margin-bottom: 0;">
+                    <span>해당 차수 전체 스캔량:</span>
+                    <strong id="step2TotalProgress">0 / 0 pcs (0%)</strong>
+                </div>
+            </div>
+
+            <p style="margin-top:20px; margin-bottom:5px;"><strong>1. 작업할 박스 찾기 (검색):</strong></p>
+            <input type="text" id="boxSearchInput" placeholder="🔍 박스 번호 검색... (입력 시 목록 압축)" autocomplete="off">
+
+            <p style="margin-top:15px; margin-bottom:5px;"><strong>2. 작업할 박스 선택:</strong></p>
+            <div class="search-select-container">
+                <button id="btnOpenDropdown" class="dropdown-btn" onclick="toggleDropdown(event)">
+                    <span id="dropdownBtnText">📦 여기를 눌러 박스를 선택하세요</span>
+                    <span>▼</span>
+                </button>
+                <div id="boxListDropdown"></div>
+            </div>
+
+            <div style="background: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 8px; padding: 15px; margin-top: 20px;">
+                <div class="stat-line" style="font-size: 1.3rem; margin-bottom: 10px;">
+                    <span id="activeStyleInfo">현재 선택 박스:</span>
+                    <strong id="step2BoxProgress">0 / 0 pcs (0%)</strong>
+                </div>
+                <div style="display:flex; gap:10px; align-items:center;">
+                    <button id="btnToggleClose" onclick="toggleBoxClose()" class="secondary" disabled>📦 현재 박스 마감</button>
+                    <button id="btnResetBox" onclick="resetBoxQuantity()" class="danger hidden">🔄 스캔 초기화</button>
+                </div>
+            </div>
+
+            <p style="margin-top:20px;"><strong>3. 바코드를 스캔하세요:</strong></p>
+            <input type="text" id="inputStep2" placeholder="박스를 먼저 선택하세요..." autocomplete="off" disabled>
+            <div class="big-display">
+                <div class="big-code" id="codeStep2">READY</div>
+                <div class="big-info" id="infoStep2">박스 선택 후 스캔하세요</div>
+            </div>
+
+            <div style="display:flex; gap:10px; align-items:center;">
+                <button onclick="switchStep(1)" class="outline" style="border-color:#94a3b8; color:#64748b;">⬅️ 뒤로</button>
+                <button onclick="downloadBoxExcel()" class="outline" style="border-color:#6366f1; color:#6366f1; margin-left:auto;">📥 박스 다운로드</button>
+                <button onclick="downloadBulkExcel()" class="success">📊 전체 결과 다운로드</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+    import { getFirestore, collection, doc, setDoc, onSnapshot, updateDoc, writeBatch, serverTimestamp, getDocs, increment, query, where, Timestamp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyAIN2d6b9fKJeP9gIb_c-nsPeQvHEizeZI",
+        authDomain: "b2b-assorting-system.firebaseapp.com",
+        projectId: "b2b-assorting-system",
+        storageBucket: "b2b-assorting-system.firebasestorage.app",
+        messagingSenderId: "505548517377",
+        appId: "1:505548517377:web:0fe1f63811594e97631000",
+        measurementId: "G-4JJ4T38GMH"
+    };
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    window.appState = {
+        dashboardBatches: [], 
+        activeBatch: null,    
+        activeId: null,
+        currentStep: 1,
+        selectedBoxCode: null,
+        focusInterval: null,
+        lastStep1Box: null,
+        lastStep1Barcode: null,
+        listeners: {} 
+    };
+
+    window.showOverQtyModal = function(msg) {
+        return new Promise((resolve) => {
+            const modal = document.getElementById('overQtyModal');
+            const btnConfirm = document.getElementById('btnConfirmModal');
+            const btnCancel = document.getElementById('btnCancelModal');
+            const msgEl = document.getElementById('overQtyMsg');
+
+            msgEl.innerText = msg;
+            modal.classList.remove('hidden');
+
+            btnConfirm.disabled = true;
+            btnConfirm.innerText = "적용 대기 중...";
+            window.speak("수량 초과입니다");
+
+            const enableTimer = setTimeout(() => {
+                btnConfirm.disabled = false;
+                btnConfirm.innerText = "초과 승인 (적용하기)";
+            }, 1000);
+
+            const cleanup = () => {
+                clearTimeout(enableTimer);
+                modal.classList.add('hidden');
+                btnConfirm.onclick = null;
+                btnCancel.onclick = null;
+            };
+
+            btnConfirm.onclick = () => { cleanup(); resolve(true); };
+            btnCancel.onclick = () => { cleanup(); resolve(false); };
+        });
+    };
+
+    async function cleanupOldBatches() {
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        const cutoff = Timestamp.fromDate(thirtyDaysAgo);
+
+        try {
+            const q = query(collection(db, 'batches'), where('createdAt', '<', cutoff));
+            const snapshot = await getDocs(q);
+            snapshot.forEach(async (batchDoc) => {
+                const id = batchDoc.id;
+                console.log(`[자동 청소] 30일이 지난 작업 삭제 중... 차수: ${id}`);
+                
+                const batchWriter = writeBatch(db);
+                const boxesSnap = await getDocs(collection(db, `batches/${id}/boxes`));
+                boxesSnap.forEach(docSnap => batchWriter.delete(docSnap.ref));
+                
+                batchWriter.delete(batchDoc.ref);
+                await batchWriter.commit();
+            });
+        } catch(e) { console.error("자동 삭제 중 오류 발생:", e); }
+    }
+
+    onAuthStateChanged(auth, (user) => {
+        const badge = document.getElementById('authStatusBadge');
+        if (user) {
+            badge.innerText = `🔒 안전 연결됨 (ID: ${user.uid.slice(0,5)}...)`;
+            document.getElementById('dataFileInput').disabled = false;
+            document.getElementById('rowsPerBoxInput').disabled = false;
+            document.getElementById('btnUpload').disabled = false;
+            
+            cleanupOldBatches();
+            
+            onSnapshot(collection(db, 'batches'), (snapshot) => {
+                window.appState.dashboardBatches = [];
+                snapshot.forEach(doc => { window.appState.dashboardBatches.push({ id: doc.id, ...doc.data() }); });
+                window.appState.dashboardBatches.sort((a,b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
+                renderDashboard();
+            });
+        } else {
+            badge.innerText = '❌ 인증 실패';
+            badge.style.background = 'var(--danger)';
+        }
+    });
+
+    signInAnonymously(auth).catch((error) => { console.error("익명 로그인 에러:", error); alert("보안 인증에 실패했습니다."); });
+
+    let koreanVoices = [];
+    function loadVoices() {
+        if (typeof speechSynthesis === 'undefined') return;
+        koreanVoices = speechSynthesis.getVoices().filter(v => v.lang.includes('ko'));
+        const sel = document.getElementById('voiceSelect');
+        let defaultIdx = koreanVoices.findIndex(v => v.name.includes('한국의'));
+        if (defaultIdx === -1) defaultIdx = 0;
+        sel.innerHTML = koreanVoices.map((v, i) => `<option value="${i}" ${i === defaultIdx ? 'selected' : ''}>${v.name.replace(/Microsoft|Google|Online/g, '').trim()}</option>`).join('');
+    }
+    window.speechSynthesis && (window.speechSynthesis.onvoiceschanged = loadVoices);
+    loadVoices();
+
+    window.speak = function(text) {
+        if (!document.getElementById('soundToggle').checked || typeof speechSynthesis === 'undefined') return;
+        window.speechSynthesis.cancel();
+        const ut = new SpeechSynthesisUtterance(text);
+        ut.voice = koreanVoices[document.getElementById('voiceSelect').value];
+        ut.rate = 1.0;
+        window.speechSynthesis.speak(ut);
+    }
+
+    function formatCodeForTTS(code) {
+        if (!code) return "";
+        if (code.includes('-')) { 
+            const p = code.split('-');
+            return parseInt(p[0], 10) + " 다시 " + parseInt(p[1], 10) + "번";
+        }
+        return parseInt(code, 10) + "번";
+    }
+
+    function escapeAttr(str) { return String(str || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
+    function escapeHtml(str) { return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;'); }
+    function sanitizeFilenamePart(str, maxLen = 50) { return String(str || '').replace(/[\\\/:*?"<>|]/g, '').trim().slice(0, maxLen) || 'EMPTY'; }
+    function safeSheetName(name, usedNames) {
+        let base = sanitizeFilenamePart(name, 31) || 'SHEET';
+        let finalName = base.slice(0, 31);
+        let seq = 1;
+        while (usedNames.has(finalName)) { 
+            const suffix = `_${seq}`;
+            finalName = base.slice(0, 31 - suffix.length) + suffix; seq++; 
+        }
+        usedNames.add(finalName); return finalName;
+    }
+    function normalizeText(v) { return String(v || '').trim(); }
+    function parseQty(v) { const num = parseFloat(String(v || '').replace(/,/g, '')); return Number.isFinite(num) ? num : NaN; }
+    function getSafeDocId(str) { return String(str).replace(/[\/\.#$\[\]]/g, '_'); } 
+
+    // --- 엑셀 업로드 ---
+    window.handleFileUpload = function() {
+        const file = document.getElementById('dataFileInput').files[0];
+        const rowsInput = document.getElementById('rowsPerBoxInput').value;
+        const rowsPerBox = parseInt(rowsInput, 10);
+
+        if (!file) return alert('파일을 선택하세요.');
+        if (!rowsInput || isNaN(rowsPerBox) || rowsPerBox < 1) return alert('대분류 1박스당 포함할 상품 행 수를 1 이상의 정수로 입력하세요.');
+
+        const btn = document.getElementById('btnUpload');
+        btn.innerText = '데이터 분석 및 클라우드 전송 중... ⏳';
+        btn.disabled = true;
+
+        const reader = new FileReader();
+        if (file.name.endsWith('.csv')) {
+            reader.readAsText(file, 'euc-kr');
+            reader.onload = (e) => processRows(Papa.parse(e.target.result).data, btn, rowsPerBox);
+        } else {
+            reader.readAsArrayBuffer(file);
+            reader.onload = (e) => {
+                const wb = XLSX.read(new Uint8Array(e.target.result), {type: 'array'});
+                processRows(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1}), btn, rowsPerBox);
+            };
+        }
+    }
+
+    async function processRows(rows, btn, rowsPerBox) {
+        try {
+            if (rows.length <= 1) throw new Error('유효한 데이터가 없습니다.');
+            const header = rows[0].map(h => normalizeText(h));
+            const idx = {
+                prodCode: header.findIndex(h => h.includes('상품코드')),
+                barcode: header.findIndex(h => h.includes('바코드')),
+                style: header.findIndex(h => h.includes('상품명')),
+                qty: header.findIndex(h => h === '재고수량' || h === '수량')
+            };
+
+            if (idx.barcode === -1 || idx.qty === -1 || idx.prodCode === -1 || idx.style === -1) throw new Error('필수 열을 찾을 수 없습니다.');
+            const mergedMap = new Map();
+            const barcodePolicyMap = new Map(); 
+            const prodCodePolicyMap = new Map(); 
+            const skippedRows = [];
+            
+            for(let i=1; i<rows.length; i++) {
+                const r = rows[i] || [];
+                const bc = normalizeText(r[idx.barcode]);
+                const pc = normalizeText(r[idx.prodCode]);
+                const st = normalizeText(r[idx.style]);
+                const q = parseQty(r[idx.qty]);
+                
+                if (!pc && !bc && !st && (!r.length || r.every(cell => normalizeText(cell) === ''))) continue;
+                if(!bc || !pc || !st || !Number.isFinite(q) || q <= 0) { skippedRows.push(i + 1); continue; }
+
+                if(barcodePolicyMap.has(bc) && (barcodePolicyMap.get(bc).prodCode !== pc || barcodePolicyMap.get(bc).style !== st)) throw new Error(`🚨 바코드 [${bc}] 불일치`);
+                else barcodePolicyMap.set(bc, { prodCode: pc, style: st });
+
+                if(prodCodePolicyMap.has(pc) && (prodCodePolicyMap.get(pc).barcode !== bc || prodCodePolicyMap.get(pc).style !== st)) throw new Error(`🚨 상품코드 [${pc}] 불일치`);
+                else prodCodePolicyMap.set(pc, { barcode: bc, style: st });
+
+                if (mergedMap.has(bc)) mergedMap.get(bc).stockQty += q;
+                else mergedMap.set(bc, { prodCode: pc, barcode: bc, style: st, stockQty: q, scannedQty: 0, cat1: null, cat2: null });
+            }
+
+            const data = Array.from(mergedMap.values());
+            if (!data.length) throw new Error(`유효 데이터 없음.\n제외된 행: ${skippedRows.join(', ')}`);
+            
+            // 🚀 핵심 변경: 병합된 결과를 상품명 오름차순으로 정렬
+            data.sort((a, b) => (a.style || '').localeCompare(b.style || ''));
+
+            const now = new Date();
+            const dateStr = `${String(now.getFullYear()).slice(2)}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+            const seqNumber = String(window.appState.dashboardBatches.length + 1).padStart(3, '0');
+            const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+            const id = `${dateStr}_${seqNumber}_${randomSuffix}`;
+
+            let totalQty = 0;
+            const boxGroups = {};
+            let currentBoxNum = 1;
+            let currentChunk = [];
+
+            // 🚀 핵심 변경: 사용자가 입력한 숫자 단위로 자르기
+            data.forEach((item, index) => {
+                totalQty += item.stockQty;
+                currentChunk.push(item);
+
+                if (currentChunk.length === rowsPerBox || index === data.length - 1) {
+                    const boxCode = String(currentBoxNum).padStart(4, '0');
+                    let boxTargetQty = 0;
+                    
+                    currentChunk.forEach(d => {
+                        d.cat1 = boxCode;
+                        boxTargetQty += d.stockQty;
+                    });
+
+                    boxGroups[boxCode] = {
+                        boxCode: boxCode,
+                        targetQty: boxTargetQty,
+                        items: currentChunk
+                    };
+                    
+                    currentBoxNum++;
+                    currentChunk = [];
+                }
+            });
+
+            const initBatch = writeBatch(db);
+            const batchDocRef = doc(db, 'batches', id);
+            
+            initBatch.set(batchDocRef, { 
+                totalQty, 
+                totalBoxes: Object.keys(boxGroups).length, 
+                step1Scanned: 0, 
+                createdAt: serverTimestamp() 
+            });
+
+            Object.entries(boxGroups).forEach(([boxCode, group]) => {
+                const boxDocRef = doc(db, `batches/${id}/boxes`, boxCode);
+                initBatch.set(boxDocRef, { 
+                    boxCode: boxCode, 
+                    targetQty: group.targetQty, 
+                    step1Scanned: 0, 
+                    isClosed: false, 
+                    items: group.items 
+                });
+            });
+
+            await initBatch.commit();
+
+            if (skippedRows.length > 0) alert(`✅ 업로드 완료!\n⚠️ 제외된 행: ${skippedRows.join(', ')}`);
+            else alert('✅ 클라우드 업로드 완료!');
+            
+            document.getElementById('dataFileInput').value = '';
+            document.getElementById('rowsPerBoxInput').value = '';
+        } catch (err) { alert(err.message); } 
+        finally { btn.innerText = '데이터 분석 및 서버 차수 생성'; btn.disabled = false; }
+    }
+
+    window.openScanner = function(id) {
+        window.appState.activeId = id;
+        document.getElementById('view-dashboard').classList.add('hidden');
+        document.getElementById('view-scanner').classList.remove('hidden');
+        document.getElementById('currentBatchTitle').innerText = `차수: ${id}`;
+        
+        window.appState.selectedBoxCode = null; window.appState.lastStep1Box = null; window.appState.lastStep1Barcode = null;
+        document.getElementById('boxSearchInput').value = '';
+        document.getElementById('dropdownBtnText').innerHTML = '📦 여기를 눌러 박스를 선택하세요';
+        document.getElementById('btnOpenDropdown').classList.remove('closed-mode');
+        
+        document.getElementById('codeStep1').innerText = 'LOADING'; document.getElementById('infoStep1').innerText = '클라우드 동기화 중...';
+        
+        if(window.appState.listeners.currentBatch) window.appState.listeners.currentBatch();
+        
+        // 🚀 변경: styles 컬렉션 대신 boxes 컬렉션 리스닝
+        window.appState.listeners.currentBatch = onSnapshot(collection(db, `batches/${id}/boxes`), (snapshot) => {
+            const batchMeta = window.appState.dashboardBatches.find(b => b.id === id) || { totalQty: 0, totalBoxes: 0, step1Scanned: 0 };
+            const activeBatch = { id, summary: { totalQty: batchMeta.totalQty, totalBoxes: batchMeta.totalBoxes, step1Scanned: batchMeta.step1Scanned, boxStats: {} }, data: [] };
+
+            snapshot.forEach(doc => {
+                const sData = doc.data();
+                activeBatch.summary.boxStats[sData.boxCode] = { targetQty: sData.targetQty, step1Scanned: sData.step1Scanned, isClosed: sData.isClosed };
+                activeBatch.data.push(...sData.items);
+            });
+
+            window.appState.activeBatch = activeBatch;
+            document.getElementById('codeStep1').innerText = 'READY'; document.getElementById('infoStep1').innerText = '스캔 대기 중';
+            updateUI();
+            if(window.appState.currentStep === 2 && document.getElementById('boxListDropdown').style.display === 'block') window.filterBoxes();
+        });
+
+        window.switchStep(1);
+        clearInterval(window.appState.focusInterval);
+        window.appState.focusInterval = setInterval(() => {
+            const inp = document.getElementById(window.appState.currentStep === 1 ? 'inputStep1' : 'inputStep2');
+            if(document.activeElement !== inp && document.activeElement !== document.getElementById('boxSearchInput') && document.getElementById('boxListDropdown').style.display !== 'block' && !inp.disabled) inp.focus();
+        }, 1000);
+    }
+
+    window.goDashboard = function() {
+        clearInterval(window.appState.focusInterval);
+        if(window.appState.listeners.currentBatch) { window.appState.listeners.currentBatch(); window.appState.listeners.currentBatch = null; }
+        document.getElementById('view-scanner').classList.add('hidden');
+        document.getElementById('view-dashboard').classList.remove('hidden');
+    }
+
+    window.switchStep = function(step) {
+        window.appState.currentStep = step;
+        document.getElementById('panel-step1').classList.toggle('hidden', step !== 1);
+        document.getElementById('panel-step2').classList.toggle('hidden', step !== 2);
+        document.getElementById('badge-step1').classList.toggle('active', step === 1);
+        document.getElementById('badge-step2').classList.toggle('active', step === 2);
+        if(step === 2) window.filterBoxes();
+        updateUI();
+    }
+
+    // STEP1 스캔
+    document.getElementById('inputStep1').addEventListener('keydown', async (e) => {
+        if(e.key === 'Enter') {
+            const bc = e.target.value.trim(); e.target.value = '';
+            const batch = window.appState.activeBatch;
+            if(!batch) return alert('동기화 대기 중이거나 활성화된 작업이 없습니다.');
+            
+            const item = batch.data.find(d => d.barcode === bc);
+            if(!item) return alert('등록되지 않은 바코드입니다.');
+
+            const boxCode = item.cat1; 
+            const stat = batch.summary.boxStats[boxCode];
+            
+            if (stat.step1Scanned >= stat.targetQty) { 
+                const isOk = await window.showOverQtyModal(`해당 대분류 박스의 스캔 수량이 초과되었습니다.\n계속 스캔할까요?`);
+                if(!isOk) {
+                    setTimeout(() => document.getElementById('inputStep1').focus(), 100);
+                    return;
+                }
+            }
+
+            window.appState.lastStep1Box = boxCode;
+            window.appState.lastStep1Barcode = item.barcode;
+            window.speak(formatCodeForTTS(boxCode));
+            
+            const boxRef = doc(db, `batches/${window.appState.activeId}/boxes`, boxCode);
+            const batchRef = doc(db, 'batches', window.appState.activeId);
+            
+            const scanBatch = writeBatch(db);
+            scanBatch.update(boxRef, { step1Scanned: increment(1) });
+            scanBatch.update(batchRef, { step1Scanned: increment(1) });
+            await scanBatch.commit();
+        }
+    });
+
+    // STEP2 스캔
+    document.getElementById('inputStep2').addEventListener('keydown', async (e) => {
+        if(e.key === 'Enter') {
+            const bc = e.target.value.trim(); e.target.value = '';
+            if(!window.appState.selectedBoxCode) return alert('박스를 먼저 선택하세요!');
+            const batch = window.appState.activeBatch;
+            if(!batch) return alert('동기화 대기 중입니다.');
+
+            const boxCode = window.appState.selectedBoxCode;
+            const stat = batch.summary.boxStats[boxCode];
+            
+            if(stat.isClosed) { window.speak("마감된 박스입니다."); return alert('🔒 이미 마감된 박스입니다.'); }
+
+            const item = batch.data.find(d => d.barcode === bc);
+            if(!item || item.cat1 !== boxCode) {
+                let correctNum = item ? parseInt(item.cat1, 10) : '미등록'; window.speak(`박스 불일치. ${correctNum}번 박스입니다.`);
+                return alert(`❌ 박스 불일치! [${correctNum}]번 박스 상품입니다.`);
+            }
+
+            let isOver = false;
+            if(item.scannedQty >= item.stockQty) { 
+                const isOk = await window.showOverQtyModal(`해당 상품의 스캔 수량이 초과되었습니다.\n적용할까요?`);
+                if(!isOk) {
+                    setTimeout(() => document.getElementById('inputStep2').focus(), 100);
+                    return;
+                }
+                isOver = true;
+            }
+
+            const boxItems = batch.data.filter(d => d.cat1 === boxCode);
+
+            const updatedItems = boxItems.map(d => {
+                if (d.barcode === bc) {
+                    d.scannedQty++;
+
+                    if (!d.cat2) {
+                        const existingSuffixes = boxItems
+                            .filter(item => item.cat2)
+                            .map(item => parseInt(item.cat2.split('-')[1], 10));
+
+                        const maxSuffix = existingSuffixes.length > 0 ? Math.max(...existingSuffixes) : 0;
+                        d.cat2 = `${boxCode}-${String(maxSuffix + 1).padStart(4, '0')}`;
+        }
+    }
+    return d;
+});
+            
+            const boxRef = doc(db, `batches/${window.appState.activeId}/boxes`, boxCode);
+            await updateDoc(boxRef, { items: updatedItems });
+
+            const updatedItem = updatedItems.find(d => d.barcode === bc);
+            document.getElementById('codeStep2').innerText = updatedItem.cat2;
+            document.getElementById('infoStep2').innerText = updatedItem.prodCode;
+            document.getElementById('codeStep2').className = `big-code ${isOver ? 'text-red' : ''}`;
+            window.speak((isOver ? "수량 초과 " : "") + formatCodeForTTS(updatedItem.cat2));
+        }
+    });
+
+    function updateUI() {
+        const b = window.appState.activeBatch; if(!b) return;
+        
+        const isDone1 = b.summary.step1Scanned >= b.summary.totalQty && b.summary.totalQty > 0;
+        const inp1 = document.getElementById('inputStep1');
+        
+        if(isDone1) {
+            document.getElementById('codeStep1').innerText = "COMPLETE"; document.getElementById('codeStep1').style.color = "var(--success)";
+            document.getElementById('infoStep1').innerText = "대분류 완료! 소분류로 이동하세요";
+            inp1.disabled = true; inp1.placeholder = "대분류 완료 (입력 잠금)";
+            document.getElementById('step1BoxProgressText').innerText = "현재 박스 진행:";
+            document.getElementById('step1BoxProgress').innerText = "완료";
+            document.getElementById('step1BoxRemaining').innerText = "0 pcs";
+        } else {
+            inp1.disabled = false;
+            inp1.placeholder = "상품 바코드를 스캔하세요..."; document.getElementById('codeStep1').style.color = "";
+            if(window.appState.lastStep1Box && b.summary.boxStats[window.appState.lastStep1Box]) {
+                const s = b.summary.boxStats[window.appState.lastStep1Box];
+                document.getElementById('codeStep1').innerText = window.appState.lastStep1Box; 
+                document.getElementById('infoStep1').innerText = window.appState.lastStep1Barcode || '';
+                document.getElementById('step1BoxProgressText').innerText = `현재 박스 진행:`;
+                document.getElementById('step1BoxProgress').innerText = `${s.step1Scanned} / ${s.targetQty} pcs`;
+                document.getElementById('step1BoxRemaining').innerText = `${Math.max(0, s.targetQty - s.step1Scanned)} pcs`;
+            }
+        }
+        
+        document.getElementById('step1TotalProgress').innerText = `${b.summary.step1Scanned} / ${b.summary.totalQty} pcs (${Math.round(b.summary.step1Scanned/b.summary.totalQty*100)||0}%)`;
+
+        const total2 = b.data.reduce((s,i)=>s+i.scannedQty,0);
+        document.getElementById('step2TotalProgress').innerText = `${total2} / ${b.summary.totalQty} pcs (${Math.round(total2/b.summary.totalQty*100)||0}%)`;
+        
+        const inp2 = document.getElementById('inputStep2'); const btnT = document.getElementById('btnToggleClose'); const btnR = document.getElementById('btnResetBox');
+        const btnText = document.getElementById('dropdownBtnText'); const btnOpen = document.getElementById('btnOpenDropdown');
+        
+        if(window.appState.selectedBoxCode) {
+            const boxCode = window.appState.selectedBoxCode;
+            const s = b.summary.boxStats[boxCode];
+            const boxItems = b.data.filter(d=>d.cat1 === boxCode);
+            const now = boxItems.reduce((sum,i)=>sum+i.scannedQty,0);
+
+            document.getElementById('step2BoxProgress').innerText = `${now} / ${s.targetQty} pcs (${Math.round(now/s.targetQty*100)||0}%)`;
+            document.getElementById('activeStyleInfo').innerText = `현재 선택 박스: [${boxCode}] ${s.targetQty} pcs`;
+            
+            if(s.isClosed) {
+                btnOpen.classList.add('closed-mode');
+                btnText.innerHTML = `[${boxCode}] ${s.targetQty} pcs <span style="color:var(--danger)">✅(마감)</span>`;
+            } else {
+                btnOpen.classList.remove('closed-mode');
+                btnText.innerHTML = `[${boxCode}] ${s.targetQty} pcs`;
+            }
+
+            btnT.disabled = false;
+            if(s.isClosed) {
+                btnT.innerText = "🔓 마감 취소";
+                btnT.className = "warning"; btnR.classList.add('hidden');
+                inp2.disabled = true; inp2.placeholder = "마감된 박스입니다. 취소 후 스캔하세요.";
+            } else {
+                btnT.innerText = "📦 현재 박스 마감";
+                btnT.className = "secondary"; btnR.classList.remove('hidden');
+                inp2.disabled = false; inp2.placeholder = "소분류 바코드를 스캔하세요...";
+            }
+        } else {
+            document.getElementById('activeStyleInfo').innerText = '현재 선택 박스:';
+            document.getElementById('step2BoxProgress').innerText = '0 / 0 pcs (0%)';
+            btnT.disabled = true; btnR.classList.add('hidden'); inp2.disabled = true; inp2.placeholder = "박스를 먼저 선택하세요...";
+        }
+    }
+
+    window.toggleBoxClose = async function() {
+        if (!window.appState.selectedBoxCode) return;
+        const b = window.appState.activeBatch; const boxCode = window.appState.selectedBoxCode; const s = b.summary.boxStats[boxCode];
+        let newClosedState = !s.isClosed;
+        
+        if(newClosedState) {
+            const now = b.data.filter(d=>d.cat1 === boxCode).reduce((sum,i)=>sum+i.scannedQty,0);
+            if(now < s.targetQty && !confirm(`🚨 수량이 ${s.targetQty - now}개 부족합니다! 진짜로 마감하시겠습니까?`)) return;
+        }
+        const boxRef = doc(db, `batches/${window.appState.activeId}/boxes`, boxCode);
+        await updateDoc(boxRef, { isClosed: newClosedState });
+        if(!newClosedState) document.getElementById('inputStep2').focus();
+    }
+
+    window.resetBoxQuantity = async function() {
+        if (!window.appState.selectedBoxCode) return;
+        if(confirm("🚨 상자의 모든 스캔 수량을 [0]으로 초기화하시겠습니까?")) {
+            const b = window.appState.activeBatch;
+            const boxCode = window.appState.selectedBoxCode;
+            const updatedItems = b.data.filter(d=>d.cat1 === boxCode).map(d => { d.scannedQty = 0; d.cat2 = null; return d; });
+            const boxRef = doc(db, `batches/${window.appState.activeId}/boxes`, boxCode);
+            await updateDoc(boxRef, { items: updatedItems });
+            document.getElementById('inputStep2').focus();
+        }
+    }
+
+    document.getElementById('boxSearchInput').addEventListener('input', () => { window.filterBoxes(); document.getElementById('boxListDropdown').style.display = 'block'; });
+    
+    window.toggleDropdown = function(e) { 
+        e.stopPropagation(); const d = document.getElementById('boxListDropdown'); 
+        d.style.display = d.style.display === 'block' ? 'none' : 'block';
+        if (d.style.display === 'block') window.filterBoxes(); 
+    }
+    
+    window.addEventListener('click', (e) => { if(!e.target.closest('.search-select-container') && e.target.id !== 'boxSearchInput') document.getElementById('boxListDropdown').style.display = 'none'; });
+    
+    window.filterBoxes = function() {
+        const val = document.getElementById('boxSearchInput').value.toLowerCase(); const batch = window.appState.activeBatch;
+        if(!batch) return;
+        const dropdown = document.getElementById('boxListDropdown');
+        
+        const filteredBoxCodes = Object.keys(batch.summary.boxStats).filter(c => c.includes(val));
+        const sorted = filteredBoxCodes.sort();
+        
+        dropdown.innerHTML = sorted.map(boxCode => {
+            const stat = batch.summary.boxStats[boxCode];
+            const closedStyle = stat.isClosed ? 'background:#f1f5f9; color:#94a3b8; text-decoration:line-through;' : '';
+            const closedBadge = stat.isClosed ? '<span style="color:var(--warning); font-weight:bold; text-decoration:none !important;"> ✅(마감)</span>' : '';
+            return `<div class="dropdown-item" style="${closedStyle}" onclick="selectBox('${escapeAttr(boxCode)}')">
+                <strong>[${boxCode}]</strong> ${stat.targetQty} pcs ${closedBadge}
+            </div>`;
+        }).join('') || '<div style="padding:10px; color:#888;">검색 결과 없음</div>';
+    }
+
+    window.selectBox = function(c) { 
+        window.appState.selectedBoxCode = c; 
+        document.getElementById('boxListDropdown').style.display = 'none'; 
+        updateUI(); document.getElementById('inputStep2').focus(); 
+    }
+
+    window.downloadMappingTable = function() {
+        const b = window.appState.activeBatch;
+        if(!b) return alert('활성화된 작업이 없습니다.');
+        
+        const exportData = [];
+        Object.keys(b.summary.boxStats).sort().forEach(boxCode => {
+            const items = b.data.filter(d => d.cat1 === boxCode);
+            items.forEach(i => {
+                exportData.push({
+                    "대분류박스번호": boxCode,
+                    "상품바코드": i.barcode,
+                    "스캔수량": i.scannedQty 
+                });
+            });
+        });
+
+        if (exportData.length === 0) return alert('데이터 없음');
+        const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(exportData), "기준표"); XLSX.writeFile(wb, `대분류내역_${b.id}.xlsx`);
+    }
+
+    window.downloadBoxExcel = function() {
+        if (!window.appState.selectedBoxCode) return alert('다운로드할 박스를 먼저 선택하세요.');
+        const b = window.appState.activeBatch; if(!b) return alert('활성화된 작업이 없습니다.');
+        
+        // 💡 1. 현재 선택한 대분류 박스(cat1)의 전체 스캔 내역을 가져옵니다.
+        const items = b.data.filter(d => d.cat1 === window.appState.selectedBoxCode && d.scannedQty > 0);
+        if(!items.length) return alert('해당 박스에 스캔된 내역이 없습니다.');
+        
+        const dateStr = new Date().toISOString().slice(2,10).replace(/-/g,'');
+        const firstItem = items[0];
+        // 💡 2. 대표 파일명은 첫 번째 소분류 코드를 기준으로 작성 (1개의 파일만 생성)
+        const filename = `대분류박스내역_${window.appState.selectedBoxCode}_${dateStr}.xlsx`;
+        
+        // 💡 3. 배열 하나에 모든 소분류 내역을 담아 시트 1개, 파일 1개로 출력
+        const exportData = items.map(i=>({ 
+            "소분류바코드": i.cat2 || `${i.cat1}-0001`, 
+            "상품코드": i.prodCode, 
+            "바코드": i.barcode, 
+            "스타일": i.style, 
+            "실제스캔수량": i.scannedQty 
+        }));
+        
+        const wb = XLSX.utils.book_new(); 
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(exportData), "내역");
+        XLSX.writeFile(wb, filename);
+    }
+    window.downloadBulkExcel = function() {
+        const b = window.appState.activeBatch;
+        if(!b) return alert('활성화된 작업이 없습니다.');
+        const scanned = b.data.filter(d => d.scannedQty > 0 && d.cat1);
+        if(scanned.length === 0) return alert('스캔 데이터가 없습니다.');
+        
+        const wb = XLSX.utils.book_new(); 
+        const usedSheetNames = new Set();
+        
+        const dateStr = new Date().toISOString().slice(2,10).replace(/-/g,'');
+        const parts = b.id.split('_'); 
+        const filename = `분류완료내역_${dateStr}_${parts[1] || '001'}_${parts[2] || 'ABCD'}.xlsx`;
+
+        // 💡 1. 전체 스캔 내역 중에서 고유한 '소분류(cat2)' 목록만 추출
+        const scannedCat2List = [...new Set(scanned.map(d => d.cat2 || `${d.cat1}-0001`))].sort();
+
+        // 💡 2. 각 소분류(cat2)별로 새로운 시트를 생성하여 데이터 삽입
+        scannedCat2List.forEach(c2 => {
+            const items = scanned.filter(d => (d.cat2 || `${d.cat1}-0001`) === c2); 
+            if (!items.length) return;
+            
+            const totalScanned = items.reduce((sum, i) => sum + i.scannedQty, 0);
+            const sheetName = safeSheetName(`${c2}_${totalScanned}pcs`, usedSheetNames); // 예: 0001-0001_24pcs
+            
+            const exportData = items.map(i => ({ 
+                "대분류-소분류코드": c2, 
+                "상품코드": i.prodCode, 
+                "상품바코드": i.barcode, 
+                "상품명": i.style, 
+                "스캔수량": i.scannedQty 
+            }));
+            
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(exportData), sheetName);
+        });
+        
+        XLSX.writeFile(wb, filename);
+    }
+
+    function renderDashboard() {
+        const list = document.getElementById('batchList');
+        list.innerHTML = window.appState.dashboardBatches.map(b => `
+            <li class="card" style="display:flex; justify-content:space-between; align-items:center;">
+                <div onclick="openScanner('${b.id}')" style="cursor:pointer; flex:1;"><strong>${b.id}</strong> (목표 수량: ${b.totalQty} pcs)</div>
+                <button class="danger" style="padding:6px 12px; font-size:13px;" onclick="deleteBatch('${b.id}')">삭제</button>
+            </li>`).join('') || '<p style="text-align:center; color:#94a3b8;">서버에 저장된 작업 내역이 없습니다.</p>';
+    }
+
+    window.deleteBatch = async function(id) { 
+        if(confirm(`⚠️ 차수 [${id}] 데이터를 완전히 삭제하시겠습니까?\n데이터가 모두 삭제되면 복구할 수 없습니다.`)) {
+            try {
+                const batchWriter = writeBatch(db);
+                // 🚀 하위 styles 대신 boxes 삭제로 변경
+                const boxesSnap = await getDocs(collection(db, `batches/${id}/boxes`));
+                boxesSnap.forEach(docSnap => batchWriter.delete(docSnap.ref));
+                
+                batchWriter.delete(doc(db, 'batches', id));
+                await batchWriter.commit();
+                alert('완전히 삭제되었습니다.');
+            } catch(e) { console.error(e); alert('삭제 중 오류가 발생했습니다.'); }
+        } 
+    }
+</script>
+</body>
+</html>
